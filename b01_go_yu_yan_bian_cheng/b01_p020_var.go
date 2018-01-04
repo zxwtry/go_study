@@ -128,5 +128,61 @@ package b01_go_yu_yan_bian_cheng
     1， 布尔类型：bool
     2， 整型：int8、byte、int16、int、uint、uintptr等
     3， 浮点类型：float32、float64
-    4，
+    4， 复数类型：complex64、complex128
+    5， 字符串：string
+    6， 字符类型：rune
+    7， 错误类型：error
+
+    复合类型：
+    1， 指针：pointer
+    2， 数组：array
+    3， 切片：slice
+    4， 字典：map
+    5， 通道：chan
+    6， 结构体：struct
+    7， 接口：interface
  */
+
+
+ /*
+    布尔类型：
+
+    var v1 bool
+    v1 = true
+    v2 := (1 == 2)  // v2也会自动推导为bool类型
+
+    var b bool
+    b = 1   // 编译出错
+    b = bool(1)   // 编译出错
+    布尔类型不能接受其他类型的赋值
+    布尔类型不支持自动或强制的类型转换
+
+    b = (1 != 0)   // 编译正确
+  */
+
+
+ /*
+    整型：
+
+    int8        1           -128 ~ 127
+    uint8       1             0  ~ 255
+    int16       2         -32768 ~ 32767
+    uint16      2              0 ~ 65535
+    int32       4          -2^31 ~ 2^31 - 1
+    uint32      4              0 ~ 2^32 - 1
+    int64       8          -2^63 ~ 2^63 - 1
+    uint64      8              0 ~ 2^64 - 1
+    int        平台相关
+    uint       平台相关
+    uintptr     32位平台4字节，64位平台8字节
+
+    int和int32认为是两种不同的类型。
+    编译器不会自动做类型转换
+    var value int32
+    value1 := 64        // value1自动推导为int类型
+    value = value1      // 编译出错
+    // 出错信息： cannot use value1 (tyype int) as type int32 in assignment
+
+
+
+  */
