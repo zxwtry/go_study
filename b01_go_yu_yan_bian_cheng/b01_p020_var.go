@@ -2,11 +2,13 @@ package b01_go_yu_yan_bian_cheng
 
 import "fmt"
 
+
 /**
  * User:  zxwtry
  * Date:  2017/12/30
  * Time:  15:05
  */
+
 
 /*
     变量声明：
@@ -68,6 +70,7 @@ import "fmt"
         os.GetEnv()只有在运行期才能知道返回结果，编译期不能确定
 
  */
+
 
 /*
     预定义常量：
@@ -350,11 +353,55 @@ func P020ValueType()  {
     创建数组切片：
             1， 基于数组
                 var mySlice []int = myArray[:5]     下标 0~4
+                // myArray可以长度小于5，那么后边的部分会填上0
                 var mySlice []int = myArray[:]      所有元素
                 var mySlice []int = myArray[5:]     下标从5开始
+
+
             2， 直接创建
+                内置函数make()可以用于灵活创建数组切片
+
+                // 创建一个初始元素个数为5的数组切片，元素初始值为0
+                mySlice1 := make([]int, 5)
+
+                // 创建一个厨师元素个数为5的数组切片，元素初始值为0
+                // 并预留10个元素的存储空间
+                mySlice2 := make([]int, 5, 10)
+
+                // 直接创建并初始化包含5个元素的数组切片
+                mySlice3 := []int {1, 2, 3, 4, 5}
+
+
+            3， 元素遍历
+                操作数组元素的所有方法都适用于数组切片
+
+                    1， 数组切片可以按下标读写元素
+                    2， 用len()函数获取元素个数
+                    3， 支持使用range关键字来快速遍历所有元素
+
+                传统的元素遍历方法如下：
+                    for i := 0; i < len(mySlice); i ++ {
+                        fmt.Println("mySlice[", i, "] =", mySlice[i])
+                    }
+
+                使用range关键字，遍历数组
+                    for i, v := range mySlice {
+                        fmt.Println("mySlice[", i, "] = ", v)
+                    }
+
+    内容复制：
+            使用copy函数
+            将内容从一个数组切片复制到另一个数组切片
+            如果加入的两个数组切片不一样大，
+            就会按其中较小的那个数组切片的元素个数进行复制。
+            s1 := []int{1, 2, 3, 4, 5}
+            s2 := []int{5, 4, 3}
+
+            copy(s2, s1)  // 只会复制s1的前3个元素到s2中
+            copy(s1, s2)  // 只会复制s2的前3个元素到s1中
 
  */
+
 
 func P020ArraySlice()  {
     // 先定义一个数组
@@ -383,9 +430,93 @@ func P020ArraySlice()  {
 }
 
 
-func P020()  {
+func P020ArraySliceLenCap()  {
+    mySlice := make([] int, 5, 10)
+    // fmt.Println("len(mySlice): ", len(mySlice))
+    // fmt.Println("cap(mySlice): ", cap(mySlice))
+    /*
+        len(mySlice):  5
+        cap(mySlice):  10
+     */
+
+    mySlice = append(mySlice, 1, 2, 3)
+    // fmt.Println("len(mySlice): ", len(mySlice))
+    // fmt.Println("cap(mySlice): ", cap(mySlice))
+    /*
+        len(mySlice):  8
+        cap(mySlice):  10
+     */
+
+    newAdd := [] int {5, 6, 7}
+    mySlice = append(mySlice, newAdd...)
+    // 加三个省略号，将 newAdd数组打散
+    fmt.Println("len(mySlice): ", len(mySlice))
+    fmt.Println("cap(mySlice): ", cap(mySlice))
+    /*
+        len(mySlice):  11
+        cap(mySlice):  20
+     */
 
 }
+
+
+/*
+    map
+    对比：c++ std::map<>  c# Dictionary<>  Java HashMap<> 需要引入相应的库
+    Go中，使用map不需要引入任何库
+
+    变量声明：
+        var myMap map(string) PersonInfo
+            变量名    键类型   值类型
+    变量创建：
+        myMap = make(map[string] PersonInfo)
+        myMap = make(map[string] PersonInfo, 100)   // 初始存储能力100
+        myMap = map[string] PersonInfo {
+            "1234": PersonInfo{"1", "Jack", "Room 101,..."},
+        }
+    元素赋值：
+        myMap["1234"] = PersonInfo{"1", "Jack", "Room 101,..."}
+    元素删除： delete删除容器内的元素
+        delete(myMap, "1234")
+        // 如果传入的myMap变量是nil，抛出异常panic
+    元素查找：
+        value, ok := myMap["1234"]
+        if ok { // 找到了
+            // 处理找到的value
+        } else {
+
+        }
+ */
+
+
+type PersonInfo struct {
+    ID string
+    Name string
+    Address string
+}
+ 
+ 
+func P020Map()  {
+    var personDB map[string] PersonInfo
+    personDB = make(map[string] PersonInfo)
+
+    // 往这个map里插入几条数据
+    personDB["12345"] = PersonInfo{"12345", "Tom", "Room 203,..."}
+    personDB["1"] = PersonInfo{"1", "Jack", "Room 101,..."}
+
+    // 从这个map查找键为"1234"的信息
+    person, ok := personDB["12345"]
+    if ok {
+        fmt.Println("found! ", person)
+    } else {
+        fmt.Println("not found!")
+    }
+    /*
+        found!  {12345 Tom Room 203,...}
+     */
+}
+
+
 
 
 
