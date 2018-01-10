@@ -138,4 +138,53 @@ func P038Func()  {
                 fmt.Println(arg)
             }
         }
+        形如 ...type格式的类型只能作为函数的参数类型存在，
+        而且必须是最后一个参数。
+
+    2， 不定参数的传递
+        func myFunc(args ...int) {
+            // 按原样传递
+            myFunc2(args...)
+
+            // 传递片段
+            myFunc3(args[1:]...)
+        }
+
+    3， 任意类型的不定参数
+        如果希望传递任意类型，可以指定类型为interface()
+        下面是Go语言标准库中fmt.Printf()的函数原型：
+        func Printf(format string, args ...interface{}) {
+            // ..
+        }
  */
+
+func P038MyPrintf()  {
+    var myPrint = func(args ...interface{}) {
+        for _, arg := range args {
+            switch arg.(type) {
+                case int:
+                    fmt.Println(arg, " is an int value");
+                case string:
+                    fmt.Println(arg, " is an string value");
+                case int64:
+                    fmt.Println(arg, " is an int value");
+                default:
+                    fmt.Println(arg, " is an unknown value");
+            }
+        }
+    }
+
+    var v1 int = 1
+    var v2 int64 = 234
+    var v3 string = "hello"
+    var v4 float32 = 1.23
+
+    myPrint(v1, v2, v3, v4)
+
+    /*
+        1  is an int value
+        234  is an int value
+        hello  is an string value
+        1.23  is an unknown value
+     */
+}
