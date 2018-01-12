@@ -517,6 +517,22 @@ func P020Map()  {
 }
 
 
+func p020Change(v []int, newValue int)  {
+    v[0] = newValue
+}
+
+
+func P020Change() {
+    v := []int {0, 0}
+
+    newValue := 100
+    p020Change(v, newValue)
+    for key, value := range(v) {
+        fmt.Printf("key: %d   value: %d\n", key, value)
+    }
+}
+
+
 
 
 
