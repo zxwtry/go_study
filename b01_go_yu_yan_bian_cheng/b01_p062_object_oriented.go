@@ -1,6 +1,8 @@
 package b01_go_yu_yan_bian_cheng
 
-import "fmt"
+import (
+    "fmt"
+)
 
 /**
  * User:  zxwtry
@@ -351,7 +353,7 @@ func P062ByVauleByReference()  {
         如：
         type Rect struct {
             X, Y float64
-            Widtch, Height float64
+            Width, Height float64
         }
 
         成员方法的可见性，同样遵循相同的规则
@@ -360,7 +362,270 @@ func P062ByVauleByReference()  {
         }
 
 
+    非侵入式接口
+        Go语言中，一个类只需要实现了接口要求的所有函数，
+            就说这个类实现了该接口
+
+        type File struct {
+            // ...
+        }
+        func (f *File) Read(buf [] byte) (n int, err error)
+        func (f *File) Write(buf [] byte) (n int, err error)
+        func (f *File) Seek(off int64, whence int) (pos int64, err error)
+        func (f *File) Close() error
+
+        定义File类，并实现有Read()、Write()、Seek()、Close()等方法。
+
+        type IFile interface {
+            Read(buf []byte) (n int, err error)
+            Write(buf []byte) (n int, err error)
+            Seek(off int64, whence int) (pos int64, err error)
+            Close() error
+        }
+
+        type IReader interface {
+            Read(buf []byte) (n int, err error)
+        }
+
+        type IWriter interface {
+            Write(buf []byte) (n int, err error)
+        }
+
+        type IClose interface {
+            Close() error
+        }
+
+        尽管File类没有从这些接口继承， 甚至不知道这些接口的存在
+        但是File累实现了这些接口，可以进行赋值
+        var f1 IFile = new(File)
+        var f2 IReader = new(File)
+        var f3 IWriter = new(File)
+        var f4 ICloser = new(File)
+
+
+        Go语言的非侵入式接口优点：
+        1，Go语言的标准库，没有类库的继承树结构。
+        2，实现类的时候，只需要关心自己应该提供哪些方法。
+            不用再纠结接口需要拆分多细才合理。
+            接口由使用方按需定义，不用事前规划。
+        3，不用为了实现一个接口而导入一个包
+            过多导入一个外部包，意味着更多的耦合。
+            接口由使用方按需定义，使用方无需关心是否有其他模块定义过类似的接口。
+ */
+
+
+/*
+    接口赋值：
+        1，将对象实例赋值给接口
+        2，将一个接口赋值给另一个接口
+
+
+ */
+
+// type Integer int     之前定义过
+func (a Integer) Less(b Integer) bool {
+    return a < b
+}
+func (a *Integer) Add(b Integer) {
+    *a += b
+}
+type LessAdder interface {
+    Less(b Integer) bool
+    Add(b Integer)
+}
+type Lesser interface {
+    Less(b Integer) bool
+}
+func P062ObjectToInterface()  {
+    /*
+        定义一个Integer类型的对象实例
+        怎么将其赋值给LessAdder接口？
+        var a Integer = 1
+        var b LessAdder = &a    //  这个语句正确
+        var b LessAdder = a     //  这里出现错误
+     */
+    var a Integer = 1
+    var b LessAdder = &a    //  这个语句正确
+    //var b LessAdder = a     //  这里出现错误
+    fmt.Println(b)
+
+    var c1 Lesser = &a
+    var c2 Lesser = a
+    fmt.Println(c1, c2)
+    /*
+        var b LessAdder = a   出现错误的原因如下：
+        1，Go语言可以根据下面函数
+            func (a Integer) Less (b Integer) bool
+            自动生成一个新的Less()方法
+            func (a *Integer) Less (b Integer) bool {
+                return (*a).Less(b)
+            }
+
+            这样类型*Integer就既存在Less()方法，
+            也存在Add()方法，满足LessAdder接口。
+
+        2，根据 func (a *Integer) Add(b Integer)
+            这个函数无法自动生成以下这个成员方法：
+            func (a Integer) Add(b Integer) {
+                (&a).Add(b)
+            }
+            因为(&a).Add(b)改变的只是函数参数a，对外部实际要操作的对象并无影响
+            这不符合用户的预期
+            Go语言不会自动为其生成该函数
+            类型Integer只存在Less()方法，缺少Add()方法
+     */
+}
+
+
+/*
+    将一个接口赋值给另一个接口：
+        在Go语言中，只要两个接口拥有相同的方法列表（次序不同不要紧）
+        那么它们就是等同的，可以相互赋值
+
+    第一个接口：
+        package one
+        type ReadeWriter interface {
+            Read(buf []byte) (n int, err error)
+            Write(buf []byte) (n int, err error)
+        }
+
+    第二个接口：
+        package two
+        type IStream interface {
+            Write(buf []byte) (n int, err error)
+            Read(buf []byte) (n int, err error)
+        }
+
+    在这里定义了两个接口：
+        一个：one.ReadWriter
+        一个：tow.IStream
+        两者都定义了Read()和Write()方法，只是定义次序反了
+        在Go语言中，这两个接口实际上并没有区别。
+        var f1 two.IStream = new(File)
+        var f2 one.ReadWriter = f1
+        var f3 two.IStream = f2
+
+        接口赋值并不要求两个接口必须等价。
+        如果方法(a) > 方法(b)，那么b可以赋值给a
+
+        type Writer interface {
+            Write(buf []byte) (n int, err error)
+        }
+
+        上面的one.ReadWriter和two.IStream接口的实例都可以赋值给Writer接口
+        var f1 two.IStream = new(File)
+        var f2 Writer = f1
+
+        反过来，并不成立：
+        var f1 Writer = new(File)
+        var f2 two.IStream = f1     //这里编译不能通过
+ */
+
+
+/*
+    将上面的Writer接口转换为two.IStream接口：
+        接口查询
+
+    var f1 Writer = ...
+    if f2, ok := f1.(two.IStream); ok {
+
+    }
+    // 这里查询f1指向的对象实例是否实现了two.IStream接口
+    // 如果实现了， 那么才会执行下面的代码。
+
+    // 接口查询是否成功，需要在运行期才能确定
+    // 接口赋值，编译期只需要通过静态类型检查即可判断。
+
+    通过接口查询，Go语言能够完全了解一个对象。
+ */
+
+
+/*
+    类型查询：
+    在Go语言中，可以查询接口指向的对象实例的类型
+    var v1 interface{} = ...
+    switch v := v1.(type) {
+        case int:       //  现在v的类型是int
+        case string:    // 现在v的类型是string
+        ...
+    }
+
+    类型查询并不经常使用。更多是配合接口查询使用。
+ */
+
+type StringerT string
+
+func (s StringerT) StringMy() string  {
+    return string(s)
+}
+
+type Stringer interface {
+    StringMy() string
+}
+
+func P062InterfaceQuery() {
+    var p = func(args ...interface{}) {
+        for _, arg := range args {
+            switch v := arg.(type) {
+            case int:
+                fmt.Println("int类型", v)
+            case string:
+                fmt.Println("string类型", v)
+            default:
+                if v, ok := arg.(Stringer); ok {
+                    val := v.StringMy()
+                    fmt.Println("Stringer类型", val)
+                } else {
+                    fmt.Println("不是Stringer类型")
+                }
+            }
+        }
+    }
+    var s1 StringerT = "aa"
+    var s2 Stringer = s1
+    p(1)
+    p("bb")
+    p(s2)
+    /*
+        int类型 1
+        string类型 bb
+        Stringer类型 aa
+     */
+}
 
 
 
+/*
+    接口组合：
+        Go语言同样支持接口组合
+        type ReadWriter interface {
+            Reader
+            Writer
+        }
+        这个接口组合了Reader和Writer两个接口，它完全等同于
+        type ReadWriter interface {
+            Read(p []byte) (n int, err error)
+            Write(p []byte) (n int, err error)
+        }
+        还有：
+        ReadWriteCloser
+        ReadWriteSeeker
+        ReadSeeker
+        WriteCloser等等
+ */
+
+
+/*
+    Any类型：
+        由于Go语言中任何对象实例都满足空接口interface{}
+        var v1 interface{} = 1
+        var v2 interface{} = "abc"
+        var v3 interface{} = &v2
+        var v4 interface{} = struct{X int} {1}
+        var v5 interface{} = &struct{X int} {1}
+
+    最典型的例子：
+        标准fmt的PrintXXX系列的函数
+        func Printf(fmt string, args ...interface{})
+        func Println(args ...interface{})
  */
