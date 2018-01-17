@@ -4,6 +4,8 @@ import (
     "fmt"
     "sync"
     "runtime"
+    "time"
+    "strconv"
 )
 
 /**
@@ -258,6 +260,331 @@ func P088Channel() {
 
 
 /*
-    select
+    select：用于处理异步IO问题
+
+    select的语法和switch类似，
+        由select开始一个新的选择块
+        每个条件由case语句来描述
+
+        与switch语句相比，select有比较多的限制
+        其中最大的一条限制就是：每个case语句必须是一个IO操作
+
+    select {
+        case <-chan1:
+            // 视图从chan1读取一个数据并直接忽略读到的数据
+            //如果chan1成功读取到数据，则进行该case处理语句
+        case chan2 <- 1:
+            // 视图想chan2中写入一个整型数1,
+            //如果成功向chan2写入数据，则进行该case处理语句
+        default:
+            //如果上面都没有成功，则进入default处理流程。
+    }
+
+    有趣的程序：
+
+    ch := make(chan int, 1)
+    for {
+        select {
+            case ch <- 0:
+            case ch <- 1:
+        }
+        i := <-ch
+        fmt.Println("value received: ", i)
+    }
+
+    实现一个随机向ch中写入一个0或1的过程
+    是一个死循环
 
  */
+
+
+/*
+    缓冲机制：
+        创建带缓冲的channel：
+        c := make(chan int, 1024)
+        // 创建了一个大小为1024的int channel
+        // 即使没有读取方，写入方也可以一直往channel中写入
+        // 在缓冲区被填满之前，都不会阻塞
+
+       从带缓冲的channel中读取数据
+    和 常规无缓冲channle完全一致
+
+        可以使用range方法实现更加简便的循环读取
+
+        for i := range c {
+            fmt.Println("Received:", i)
+        }
+ */
+
+
+/*
+    超时机制
+        向channel写数据时  -->  channel已满
+        从channel读取数据  -->  channel为空
+
+
+    Go没有提供直接的超时处理机制
+
+    Go使用select，方便解决超时问题
+
+    select特点：
+        只要其中一个case已经完成，程序就会执行下去
+
+    为channel实现超时机制：
+
+        timeout := make(chan bool, 1)
+        fo func () {
+            time.Sleep(1e9)     // 等待你1秒钟
+            timeout <- true
+        } ()
+
+
+        // 然后把timeout这个channel利用起来
+
+        select {
+            case <- ch:
+                // 从ch中读取到数据
+            case <- timeouot:
+                // 一直没有从ch中读取到数据
+                // 但从timeout中读取到了数据
+        }
+
+        这样使用select机制，可以避免永久等待
+
+        程序会在timeout中读取到一个数据后，继续执行
+
+        无论对ch的读取是否还处于等待状态，从而达成1秒超时效果。
+ */
+
+
+/*
+    channel的传递
+
+        Go中channel本省是一个原生类型，和map之类的类型地位是一样的。
+            channel 本身在定义之后也可以通过channel来传递
+
+        使用channel特性，实现*nix中的管道(pile)
+
+            // 定义基本数据结构
+            type PipeData struct {
+                value int
+                handler func(int) int
+                next chan int
+            }
+
+            // 常规处理函数
+            // 达到流式处理数据
+            func handle(queue chan *PipeData) {
+                for data := range queue {
+                    data.next <- data.handler(data.value)
+                }
+            }
+
+ */
+
+
+/*
+    单向channel
+        只能发送/接收数据
+        channel是双向的
+        单向channel是对channel的限制
+
+    单向channel声明：
+        var ch1 chan int        //普通channel，不是单向的
+        var ch2 chan<- float    //单向channel，只能用于写float64数据
+        var ch3 <-chan int      //单向channel，只能用于读取int数据
+
+    单向channel初始化：
+        channel是原生类型，支持传递、支持类型转换
+        单向channel和channel之间的转换
+
+        ch4 := make(chan int)
+        ch5 := <-chan int(ch4)      // ch5就是一个单向的读取channel
+        ch6 := chan<- int(ch4)      // ch6是一个单向的写入channel
+        // 通过类型转换初始化了两个单向channel
+
+    为什么要这样限制：设计角度，所有代码都应遵循“最小权限原则”
+
+    单向channel用法：
+        func Parse(ch <-chan int) {
+            for value := range ch {
+                fmt.Println("Parsing value:", value)
+            }
+        }
+ */
+
+
+/*
+    关闭channel
+
+        内置函数：close(ch)
+
+        判断一个channel是否已经被关闭：
+            x, ok := <-ch
+
+            返回ok是false表示：ch已经被关闭
+ */
+
+
+/*
+    多核并行化
+
+ */
+
+
+
+type Vector [] float64
+
+
+func (u Vector) Op(v float64) float64  {
+    return v * v * v * v * v
+}
+
+// 分配给每个CPU的计算任务
+
+func (v Vector) DoSome(i, n int, u Vector, c chan int) {
+    for ; i < n; i ++ {
+        v[i] += u.Op(v[i])
+    }
+    c <- 1      // 发信号，告诉任务管理者，已经计算完成。
+}
+
+const NCPU = 4
+
+func (v Vector) DoAll(u Vector) {
+
+    c := make(chan int, NCPU)       // 用户接收每个CPU的任务完成信号
+
+    for i := 0; i < NCPU; i ++ {
+        go v.DoSome(i * len(v) / NCPU, (i+1)*len(v) / NCPU, u, c)
+    }
+
+    //  等待所有CPU的任务完成
+    for i := 0; i < NCPU; i ++ {
+        <- c            // 获取一个数据，表示一个CPU计算完成了
+    }
+
+    // 到这里表示所有计算已经结束
+}
+
+
+/*
+    CPU是i7 4710mq 8核
+    当NCPU是4的时候：CPU占用率大概50%
+    当NCP>=8的时候，CPU占用率接近100%
+ */
+
+
+func P088Vector()  {
+    size := 99999999
+    var v [] float64 = make([] float64, size)
+    var u [] float64 = make([] float64, size)
+    for i := 0; i < size; i ++ {
+        v[i] = float64(i)
+        u[i] = float64(i)
+    }
+    var vv Vector = v
+    var uu Vector = u
+    for times := 0; times < 200; times ++ {
+        vv.DoAll(uu)
+    }
+    //fmt.Println(uu)
+    //fmt.Println(vv)
+    /*
+        [1 2 3 4 5 6 7 8]
+        [2 6 12 20 30 42 56 72]
+     */
+}
+
+
+/*
+    让出时间片
+
+        可以在每个goroutine中控制合适主动让出时间片给其他goroutine
+        这时候可以使用runtime包中的Gosched()函数实现
+
+    如果需要精细控制goroutine的行为，
+ */
+
+
+/*
+    同步锁
+        Go语言的sync包提供两种锁类型：
+            sync.Mutex和sync.RWMutex
+
+        Mutex：最简单的锁类型
+            一个goroutine获得了Mutex后
+            其他goroutine只能等待这个goroutine释放Mutex
+
+        RWMutex：经典单写多读模型
+            多个goroutine可以同时获取读锁(RLock())
+            写锁(Lock())会阻止任何其他goroutine(无论读写)
+
+        var l sync.Mutex
+        func foo() {
+            l.Lock()
+            defer l.Unlock()
+            //...
+        }
+ */
+
+
+/*
+    全局唯一性操作
+        对于从全局的角度，只需要运行一次的代码。
+        Go语言提供一个Once类型来保证全局的唯一性操作
+
+    Once能够保证并发情况下，只运行一次那部分代码
+
+    var a string
+    var once sync.Once
+
+    func setup() {
+        a = "hello world"
+    }
+
+    func doprint() {
+        once.Do(setup)
+        print(a)
+    }
+
+    func twoprint() {
+        go doprint()
+        go doprint()
+    }
+ */
+
+
+var a string
+var once sync.Once
+
+var times = 0
+
+func setup() {
+    a = "hello world "
+    a += strconv.Itoa(times)
+  times ++
+}
+
+func doprint() {
+    once.Do(setup)
+    /*
+        hello world 0
+        hello world 0
+     */
+
+
+    //setup()
+    ///*
+    //    hello world 0
+    //    hello world 1
+    // */
+
+    fmt.Println(a)
+}
+
+func P088twoprint() {
+    go doprint()
+    go doprint()
+    time.Sleep(1e8)
+}
