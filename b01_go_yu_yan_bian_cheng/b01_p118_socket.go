@@ -20,6 +20,19 @@ package b01_go_yu_yan_bian_cheng
 
 
     Dial()函数
+        函数原型：
+        func Dial(net, addr string) (Conn, error)
+
+    常见协议的调用方式：
+        TCP：
+            conn, err := net.Dial("tcp", "192.168.0.10:2100")
+
+        UDP：
+            conn, err := net.Dial("udp", "192.168.0.12:975")
+
+        ICMP：
+            conn, err := net.Dail()
+
  */
 
 
