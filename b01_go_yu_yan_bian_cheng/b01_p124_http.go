@@ -1,0 +1,279 @@
+package b01_go_yu_yan_bian_cheng
+
+import (
+    "net/http"
+    "fmt"
+)
+
+/**
+ * User:  zxwtry
+ * Date:  2018/1/20
+ * Time:  11:24
+ */
+
+/*
+    HTTP编程：
+        HyperText Transfer Protocol
+        超文本传输协议
+
+    net/http包
+
+    HTTP客户端
+    无需借助第三方库，使用GET、POST方式请求数据。
+
+    基本方法：
+        func (c *Client) Get(url string) (r *Response, err error)
+        func (c *Client) Post(url string, bodyType string, body io.Reader) (r *Response, err error)
+        func (c *Client) PostForm(url string, data url.Values) (r *Response, err error)
+        func (c *Client) HEAD(url string) (r *Response, err error)
+        func (c *Client) Do(req *request) (r *Response, err error)
+
+    http.Get()      等价于   http.DefaultClient.Get()
+        resp, err := http.Get("http://www.zxwtry.com/")
+        if err != nil {
+            // 处理错误
+            return
+        }
+
+        defer resp.Body.close()
+        io.Copy(os.Stdout, resp.Body)
+        // 上面这段代码请求一个网站，并将其网页内容打印到标准输出流中
+
+    http.Post()
+        以POST方式发送数据，http.Post()方法
+        然后传入下面的参数：
+        1，请求的目标URI
+        2，将要POST数据的资源类型(MIMEType)
+        3，数据的比特流([]byte 形式)
+
+        下面的代码演示如何上传一张图片：
+        resp, err := http.Post("http://example.com/upload",
+                    "image/jpeg", &imageDataBuf)
+        if err != nil {
+            // 处理错误
+            return
+        }
+
+        if resp.StatusCode != http.StatusOK {
+            // 处理错误
+            return
+        }
+        // ...
+
+
+    http.PostForm()
+        http.PostForm()方法，实现了
+        标准编码格式为 application/x-www-form-urlencoded
+        的表单提交。
+
+        resp, err := http.PostForm("http://zxwtry.com/posts",
+            url.Values{"title" : {"article title"}, "content": {"article body"}})
+
+
+    http.Head()
+        HTTP中的Head请求方式表明只请求目标URL的头部信息，
+        即HTTP Header而不返回HTTP Body。
+
+        Head()方法和Get()方法一样，只需要传入目标URL一个参数即可
+
+        resp, err := http.Head("http://zxwtry.com/")
+
+
+    (*http.Client).Do()
+        发起的HTTP请求需要更多的定制信息
+        希望设定一些自定义的HTTP Header字段
+        比如：
+            传递自定义的"User-Agent"，而不是磨人的"Go http package"
+            传递Cookie
+
+        此时可以使用net/http包中的http.Client对象的Do()方法实现
+
+        req, err := http.NewRequest("GET", "http://zxwtry.com", nil)
+
+        req.Header.Add("User-Agent", "Gobook Custom User-Agent")
+
+        Client := &http.Client{}
+
+        resp, err := Client.Do(req)
+ */
+
+
+/*
+    之前的http.Get()、http.Post()、http.PostForm()、http.Head()
+    都是http.DefaultClient.Get() ...
+
+    Client的结构：
+        type Client struct {
+            // Transport用于确定Http的创建机制
+            // 如果没有Transport，使用默认的DefaultTransport
+            // http.Transport实现了http.RoundTripper接口
+            Transport RoundTripper
+
+            // CheckRedirect用于处理重定向策略
+            // 如果CheckRedirect不为空，Client将在跟踪HTTP重定向前，调用CheckRedirect
+            // req是即将发起的请求、via是已经发起的请求，最早访问的在最前面。
+            // 如果CheckRedirect返回错误，Client将返回错误并停止。
+            // 如果CheckRedirect为空，Client将在连续的10次请求后停止。
+            // GET/HEAD时候，当响应返回30x(301, 302, 303, 307)，Client会调用CheckRedirect
+            CheckRedirect func(req *Request, via []*Request) error
+
+            // 如果Jar为空，不发送cookie，并在响应中忽略cookie
+            // http.CookieJar中实现了 SetCookies()和Cookies()两个方法。
+            // 一般通过http.SetCookie()方法去设定cookie
+            Jar CookieJar
+        }
+
+
+    发送自定义请求：
+        client := &http.Client{
+            CheckRedirect: redirectPolicyFunc
+        }
+
+        resp, err := client.Get("http://zxwtry.com")
+
+        req, err := client.NewRequest("GET", "http://zxwtry.com", nil)
+
+        req.Header.Add("User-Agent", "My User Agent");
+        req.Header.Add("If-None-Match", `w/"MyFileEtag`)
+
+        resp, err := client.Do(req)
+
+
+    Transport数据结构：
+
+        type Transport struct {
+            // Proxy指定：返回代理的函数
+            // 如果error不为空，将停止执行，并返回错误
+            // 如果Proxy为空、返回URL为空，将不使用代理
+            Proxy func(*Request) (*url.URL, error)
+
+            // Dial指定：创建TCP连接的dial()函数
+            // 如果Dial为空，那么将使用默认的net.Dial()
+            Dial func(net, addr string) (c net.Conn, err error)
+
+            // TLSClientConfig指定：tls.Client的TLS配置
+            // ssl专用
+            TLSClientConfig *tls.Config
+
+            DisableKeepAlives bool      // 默认false，启用长连接
+            DisableCompression bool     // 默认false，启用压缩
+
+            // 每个Host能维持的最大空连接数（非活跃连接）
+            // 如果没有指定，使用DefaultMaxIdleConnsPerHost
+            MaxIdleConnsPerHost
+        }
+
+        Transport还有三个函数：
+
+            func (t *Transport) CloseIdleConnections()   关闭所有非活跃连接
+
+            // 注册协议，比如File、FTP等等协议
+            func (t *Transport) RegisterProtocol(scheme string, rt RoundTripper)
+
+            // 实现RoundTripper接口
+            func (t *Transport) RoundTrip(req *Request) (resp *Response, err error)
+
+
+        自定义Client
+            tr := &http.Transport {
+                TLSClientConfig: &tls.Config {RootCAs: pool}
+                DisableCompression: true
+            }
+
+            client := &http.Client {
+                Transport: tr
+            }
+
+            resp, err := client.Get("http://zxwtry.com")
+
+            Client和Transport在多个goroutine中执行是线程安全的
+            可以创建一个Client和Transport，在多个goroutine中使用
+ */
+
+
+/*
+    RoundTripper接口
+
+    type RoundTripper interface {
+
+        // RoundTrip执行单一HTTP请求并获得响应
+        // err不为空：没有正确获取响应
+        // 如果有响应，不管HTTP状态码是什么，err都为空
+        // RoundTrip不会去理解更高级内容：认证、重定向、cookie等
+        // RoundTrip不会修改请求内容
+        RoundTrip (*Request) (*Response, err error)
+    }
+
+
+ */
+
+
+type MyTransport struct {
+    Transport http.RoundTripper
+}
+
+
+func (t * MyTransport) transport() http.RoundTripper {
+    if t.Transport != nil {
+        return t.Transport
+    }
+    return http.DefaultTransport;
+}
+
+func (t * MyTransport) roundTrip(req *http.Request) (*http.Response, error) {
+    return t.transport().RoundTrip(req);
+}
+
+func (t *MyTransport) client() * http.Client {
+    return &http.Client{
+        Transport: t.transport(),
+    }
+}
+
+func P124MyTransport() {
+    tr := &MyTransport{}
+    client := tr.client()
+    resp, err := client.Get("http://zxwtry.com")
+    if err == nil {
+        fmt.Println("right")
+        fmt.Println(resp)
+    } else {
+        fmt.Println("error")
+        fmt.Println(err)
+    }
+    /*
+        输出：
+
+    right
+    &{
+        200 OK 200
+        HTTP/1.1 1 1
+        map[    Etag:[W/"3683-1507730850000"]
+                Last-Modified:[Wed, 11 Oct 2017 14:07:30 GMT]
+                Content-Type:[text/html]
+                Content-Length:[3683]
+                Date:[Tue, 23 Jan 2018 08:16:17 GMT]
+                Server:[unknown-server]
+                Accept-Ranges:[bytes]
+        ]
+        0xc0420362c0 3683 [] false false
+        map[] 0xc0420e0000 <nil>
+    }
+     */
+}
+
+
+func P124MyTransportCompare() {
+    client := &http.Client{}
+    resp, err := client.Get("http://zxwtry.com")
+    if err == nil {
+        fmt.Println("right")
+        fmt.Println(resp)
+    } else {
+        fmt.Println("error")
+        fmt.Println(err)
+    }
+    /*
+        得到的返回信息 和 P124MyTransport一样
+     */
+}
