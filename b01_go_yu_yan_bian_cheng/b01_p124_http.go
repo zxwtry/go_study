@@ -3,6 +3,11 @@ package b01_go_yu_yan_bian_cheng
 import (
     "net/http"
     "fmt"
+    "log"
+    "time"
+    "errors"
+    "net/rpc"
+    "net"
 )
 
 /**
@@ -203,8 +208,6 @@ import (
         // RoundTrip不会修改请求内容
         RoundTrip (*Request) (*Response, err error)
     }
-
-
  */
 
 
@@ -212,16 +215,15 @@ type MyTransport struct {
     Transport http.RoundTripper
 }
 
-
 func (t * MyTransport) transport() http.RoundTripper {
     if t.Transport != nil {
         return t.Transport
     }
-    return http.DefaultTransport;
+    return http.DefaultTransport
 }
 
 func (t * MyTransport) roundTrip(req *http.Request) (*http.Response, error) {
-    return t.transport().RoundTrip(req);
+    return t.transport().RoundTrip(req)
 }
 
 func (t *MyTransport) client() * http.Client {
@@ -251,7 +253,7 @@ func P124MyTransport() {
         map[    Etag:[W/"3683-1507730850000"]
                 Last-Modified:[Wed, 11 Oct 2017 14:07:30 GMT]
                 Content-Type:[text/html]
-                Content-Length:[3683]
+                Content-Length:[3683]u
                 Date:[Tue, 23 Jan 2018 08:16:17 GMT]
                 Server:[unknown-server]
                 Accept-Ranges:[bytes]
@@ -277,3 +279,167 @@ func P124MyTransportCompare() {
         得到的返回信息 和 P124MyTransport一样
      */
 }
+
+
+
+/*
+    Client是业务层
+    非业务层细节：
+        1，HTTP传输过程
+        2，代理
+        3，GZIP
+        4，连接池
+        5，认证(SSL等)
+ */
+
+
+/*
+    处理HTTP请求
+    func ListenAndServe(addr string, handler Handler) error
+    如果 handler为空，默认使用 http.DefaultServeMux
+    编写的http.Handler()和http.HandlerFunc()会注入到http.DefaultServeMux
+
+    http.Handler("/foo", fooHandler)
+    http.HandlerFunc("/bar", func(w ResponseWriter, r *http.Request) {
+        fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+    })
+    log.Fatal(http.ListenAndServe(":8080", nil))
+
+
+    自定义http.Server
+
+    s := &http.Server {
+        Addr: ":9998",
+        Handler: http.DefaultServeMux,
+        ReadTimeOut: 10 * time.Second,
+        WriteTimeOut: 10 * time.Second,
+        MaxHeaderBytes: 1 << 20
+    }
+ */
+
+func P124HttpServe() {
+    log.Fatal(http.ListenAndServe(":9999", nil))
+}
+
+
+func P124HttpServer() {
+    s := &http.Server {
+        Addr: ":9998",
+        Handler: http.DefaultServeMux,
+        ReadTimeout: 10 * time.Second,
+        WriteTimeout: 10 * time.Second,
+        MaxHeaderBytes: 1 << 20,
+    }
+    log.Fatal(s.ListenAndServe())
+}
+
+
+/*
+    HTTPS：需要认证文件和认证私钥
+    http.ListenAndServeTLS(addr string,
+        verFile string, verKey string, handler Handler)
+
+    s := &http.Server {
+        Addr: ":9996",
+        Handler: http.DefaultServeMux,
+        ReadTimeOut: 10 * time.Second,
+        WriteTimeOut: 10 * time.Second,
+        MaxHeaderBytes: 1 < 20
+    }
+
+    log.Fatal(s.ListenAndServeTLS(verFile string, verKey string))
+ */
+
+
+/*
+    RPC特点：
+    1，首字母大写
+    2，类型：外部包可访问、Go内置类型
+    3，第二个参数是指针
+    4，返回一个error
+
+    func (t *T) MethodName(arg T1, ret *T2) error {}
+    T、T1、T2都必须是encoding/gob能够编码的
+
+    可以通过rpc.ServeConn()来处理单个连接
+ */
+
+
+/*
+    rpc提供rpc.Dial()和rpc.DialHttp()
+    rpc.Call()：同步
+    rpc.Dial()：异步
+ */
+
+
+type Arith int
+
+
+type Args struct {
+    A, B int
+}
+
+
+type Quotient struct {
+    Quo, Rem int
+}
+
+
+func (a *Arith) Multiply(arg *Args, quo *int) error {
+    *quo = arg.A * arg.B
+    return nil
+}
+
+
+func (a *Arith) Divide(arg *Args, quo *Quotient) error {
+    if arg.B == 0 {
+        err := errors.New("被除数为0")
+        return err
+    }
+    quo.Quo = arg.A / arg.B
+    quo.Rem = arg.A % arg.B
+    return nil
+}
+
+
+func P124RPC_MD() {
+    arith := new(Arith)
+    rpc.Register(arith)
+    rpc.HandleHTTP()
+
+    l, e := net.Listen("tcp", ":9995")
+    if e != nil {
+        fmt.Println("RPC 服务出错")
+        fmt.Println(e)
+    }
+    //go http.Serve(l, nil)
+    http.Serve(l, nil)
+}
+
+
+func P1234RPC_Client() {
+    client, err := rpc.DialHTTP("tcp", "localhost:9995");
+    if err != nil {
+        log.Fatal("dialing:", err)
+    }
+    args := &Args{7, 8}
+    var reply int
+    e := client.Call("Arith.Multiply", args, &reply)
+    if e != nil {
+        log.Fatal("call:", e)
+    }
+    fmt.Println("reply is", reply)
+    var re2 Quotient
+    e2 := client.Call("Arith.Divide", args, &re2)
+    if e2 != nil {
+     log.Fatal("call re2:", e)
+    }
+    fmt.Println("re2 is", re2.Quo, re2.Rem)
+    /*
+        reply is 56
+        re2 is 0 7
+     */
+}
+
+
+
