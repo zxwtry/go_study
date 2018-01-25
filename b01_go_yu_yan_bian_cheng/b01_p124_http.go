@@ -417,8 +417,8 @@ func P124RPC_MD() {
 }
 
 
-func P1234RPC_Client() {
-    client, err := rpc.DialHTTP("tcp", "localhost:9995");
+func P124RPC_Client() {
+    client, err := rpc.DialHTTP("tcp", "localhost:9995")
     if err != nil {
         log.Fatal("dialing:", err)
     }
@@ -442,4 +442,64 @@ func P1234RPC_Client() {
 }
 
 
+func P124RPC_ClientGo() {
+    client, err := rpc.DialHTTP("tcp", "localhost:9995")
+    if err != nil {
+        log.Fatal("dialing:", err)
+    }
+    args := &Args{A:7, B:8}
+    var reply int
+    e := client.Go("Arith.Multiply", args, &reply, nil)
+    done := <- e.Done
+    if done.Error == nil {
+        fmt.Println("no error")
+        fmt.Println("result is", reply)
+    } else {
+        fmt.Println("reply error")
+        fmt.Println("error is", done.Error)
+    }
+    var re2 Quotient
+    e2 := client.Go("Arith.Divide", args, &re2, nil)
+    done2 := <- e2.Done
+    if done2.Error == nil {
+        fmt.Println("no error")
+        fmt.Println("result is", done2.Reply)
+    } else {
+        fmt.Println("reply error")
+        fmt.Println("error is", done2.Error)
+    }
+    /*
+        no error
+        result is 56
+        no error
+        result is &{0 7}
+     */
+}
 
+
+/*
+    Gob：二进制流，Go语言专用
+    自解析、高效率、完整表达能力
+ */
+
+
+
+/*
+    RPC编码解码
+
+    type ClientCodec interface {
+        WriteRquest(*Request, interface{}) error
+        ReadResponseHeader(*Response) error
+        ReadResponseBody(interface{}) error
+
+        Close() error
+    }
+
+    type ServerCodec interface {
+        ReadRequestHeader(*Request) error
+        ReadRequestBody(interface{}) error
+        WriteResponse(*Response, interface{}) error
+
+        Close() error
+    }
+ */
